@@ -69,7 +69,9 @@ func assumeRole(sess *session.Session, input *sts.AssumeRoleInput) *sts.AssumeRo
 }
 
 func printExport(val *sts.AssumeRoleOutput) {
-
+	fmt.Printf("export AWS_ACCESS_KEY_ID=%s\n", *val.Credentials.AccessKeyId)
+	fmt.Printf("export AWS_SECRET_ACCESS_KEY=%s\n", *val.Credentials.SecretAccessKey)
+	fmt.Printf("export AWS_SESSION_TOKEN=%s\n", *val.Credentials.SessionToken)
 }
 
 func setEnv(val *sts.AssumeRoleOutput) {
@@ -88,8 +90,6 @@ func main() {
 	if len(flag.Args()) > 0 {
 		fmt.Printf("executing command %s\n", flag.Args())
 	} else {
-		fmt.Println("showing export commands")
+		printExport(role)
 	}
-
-	fmt.Println(role)
 }
