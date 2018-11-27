@@ -1,0 +1,29 @@
+language: go
+go:
+- 1.x
+git:
+  depth: 1
+before_install:
+- curl -L -s https://github.com/golang/dep/releases/download/v0.5.0/dep-linux-amd64
+  -o $GOPATH/bin/dep
+- chmod +x $GOPATH/bin/dep
+install:
+- dep ensure --vendor-only
+notifications:
+  email: false
+script:
+- go test -v ./...
+- mkdir bin
+- GOOS=linux go build -o bin/assume-role-arn-linux cmd/assume-role-arn/main.go
+- GOOS=osx go build -o bin/assume-role-arn-osx cmd/assume-role-arn/main.go
+deploy:
+  provider: releases
+  skip_cleanup: true
+  api_key:
+    secure: c2F5Pp/D/TfhqfRuiNqBjnqnC2ItC5PDW2sYoWM13u0JUFQo73HcMLf5LK5VefyeFOk+pBQufskSr4M+TjtGZoFnA4resOqo7eKz8msLvrwNmRcxHWgBDVCnK9Ry9rrHvxzLzl8Cd9nbOqu7+q2gpn8Js860k0vLvvqhjZr+QSthwaY5LFLJQ72EocEvnnr7qMYHnc5oGVjiwMA2wOotOiYbJWizdbwITWjlWdWIybmsgvEPmjNbj2dI7Ll0YwQGHxGhitaTMSV3MPr4mJ4VSxE9F0Fl+/GuhPrzryOelK5i7UregdGbYayr3l7jp4Ogpu/DkUHumcZx3l3h7mvrIVxIjD/ioB2CCOOROCrnDHkxaHRv5Pv62X5iO0RoSqr8Sxd18wuoc+y3lWFTZGqecpc303kNOwo9GQJEsfMv5SbT4mgQIaTFfIvSxHboCqBmjfkcjJFdVA6nfc2D6Hg7KQdi/Qb+muWjdZrQxp2fDyjfU+Z3OOZG/XcHOOXeIYrbvB90v8hotW+whSmPI+KN2X3Ua7IDhWxWgERsj2uAbNieNKEz71V4IYqe+Sr2itPDXvHkc0DH3e5B5D2aI12i8GTI4FXdkHp+D+WXhPIX0OHfBTHklZFkXWzhpWUP6sDh9hmGgq2jct8Iy6qbZO3TUD/Wijvir0XrEcQyzh2FY7U=
+  file:
+    - bin/assume-role-arn-linux
+    - bin/assume-role-arn-osx
+  on:
+    repo: nordcloud/assume-role-arn
+    tags: true
