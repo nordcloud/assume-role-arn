@@ -3,6 +3,8 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
+	"syscall"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -75,11 +77,14 @@ func printExport(val *sts.AssumeRoleOutput) {
 }
 
 func setEnv(val *sts.AssumeRoleOutput) {
-
+	os.Setenv("AWS_ACCESS_KEY_ID", *val.Credentials.AccessKeyId)
+	os.Setenv("AWS_SECRET_ACCESS_KEY", *val.Credentials.SecretAccessKey)
+	os.Setenv("AWS_SESSION_TOKEN", *val.Credentials.SessionToken)
 }
 
-func exec(cmd []string) {
-
+func runCommand(args []string) error {
+	env := os.Environ()
+	return syscall.Exec(args[0], args[1:], env)
 }
 
 func main() {
@@ -88,7 +93,7 @@ func main() {
 	role := assumeRole(sess, toAssume)
 
 	if len(flag.Args()) > 0 {
-		fmt.Printf("executing command %s\n", flag.Args())
+		runCommand(flag.Args())
 	} else {
 		printExport(role)
 	}
