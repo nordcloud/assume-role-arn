@@ -23,10 +23,10 @@ $ assume-role-arn -r <role_arn> aws sts get-caller-identity
 
 Available flags:
 
-*  -r role_arn - required, role ARN
-*  -e external_id - optional, if you need to specify external id
-*  -n role_session_name - probably you don't need this
-*  -h - help
+*  `-r role_arn` - required, role ARN
+*  `-e external_id` - optional, if you need to specify external id
+*  `-n role_session_name` - probably you don't need this
+*  `-h` - help
 
 ## Authors
 * Jakub Woźniak, Nordcloud 🇵🇱
