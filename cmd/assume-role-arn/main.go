@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
 	"syscall"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -84,7 +85,13 @@ func setEnv(val *sts.AssumeRoleOutput) {
 
 func runCommand(args []string) error {
 	env := os.Environ()
-	return syscall.Exec(args[0], args[1:], env)
+
+	binary, err := exec.LookPath(args[0])
+	if err != nil {
+		panic(err)
+	}
+
+	return syscall.Exec(binary, args[1:], env)
 }
 
 func main() {
@@ -93,7 +100,11 @@ func main() {
 	role := assumeRole(sess, toAssume)
 
 	if len(flag.Args()) > 0 {
-		runCommand(flag.Args())
+		setEnv(role)
+		err := runCommand(flag.Args())
+		if err != nil {
+			panic(err)
+		}
 	} else {
 		printExport(role)
 	}
