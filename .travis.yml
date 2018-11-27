@@ -15,7 +15,7 @@ script:
 - go test -v ./...
 - mkdir bin
 - GOOS=linux go build -o bin/assume-role-arn-linux cmd/assume-role-arn/main.go
-- GOOS=osx go build -o bin/assume-role-arn-osx cmd/assume-role-arn/main.go
+- GOOS=darwin go build -o bin/assume-role-arn-osx cmd/assume-role-arn/main.go
 deploy:
   provider: releases
   skip_cleanup: true
