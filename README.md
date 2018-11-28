@@ -28,5 +28,27 @@ Available flags:
 *  `-n role_session_name` - probably you don't need this
 *  `-h` - help
 
+## CI/CD pipeline example
+Let's say we have three AWS accounts:
+* iam
+* stg
+* prod
+You have your IAM deployment user only on `iam` account, but it can assume cross-account roles in `prod` and `stg` accounts.
+Make sure you have your `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` exported in your pipeline's env variables.
+
+Go to [Releases](https://github.com/nordcloud/assume-role-arn/releases) and select binary from the last release you want to use. For v0.2 and linux it would be https://github.com/nordcloud/assume-role-arn/releases/download/v0.2/assume-role-arn-linux
+
+Add following steps in the beginning of your deployment script:
+```
+curl https://github.com/nordcloud/assume-role-arn/releases/download/v0.2/assume-role-arn-linux -o /usr/local/bin/assume-role-arn
+chmod +x /usr/local/bin/assume-role-arn
+
+eval $(assume-role-arn -r arn:aws:iam::ACCOUNT_NUMBER_STG:role/Deployment)
+```
+
+*Please adjust output path of curl command and role ARN according to your needs.*
+
+Now you should be able to execute AWS-related commands with your assumed role.
+
 ## Authors
 * Jakub Woźniak, Nordcloud 🇵🇱
