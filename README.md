@@ -33,6 +33,7 @@ Let's say we have three AWS accounts:
 * iam
 * stg
 * prod
+
 You have your IAM deployment user only on `iam` account, but it can assume cross-account roles in `prod` and `stg` accounts.
 Make sure you have your `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` exported in your pipeline's env variables.
 
