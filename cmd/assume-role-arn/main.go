@@ -91,7 +91,7 @@ func runCommand(args []string) error {
 		panic(err)
 	}
 
-	return syscall.Exec(binary, args[1:], env)
+	return syscall.Exec(binary, args, env)
 }
 
 func main() {
