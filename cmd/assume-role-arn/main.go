@@ -14,7 +14,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/sts"
 )
 
-var roleARN, roleName, externalID, mfa, mfaToken string
+
+var roleARN, roleName, externalID, mfa string
 
 func init() {
 	flag.StringVar(&roleARN, "role", "", "role arn")
@@ -48,20 +49,21 @@ func prepareAssumeInput() *sts.AssumeRoleInput {
 
 	if mfa != "" {
 		input.SerialNumber = aws.String(mfa)
-
-		// ask for mfa token
-		reader := bufio.NewReader(os.Stdin)
-		fmt.Printf("Enter MFA for %s: ", roleARN)
-		mfaToken, err := reader.ReadString('\n')
-		if err != nil {
-			panic(err)
-		}
-		mfaToken = strings.TrimRight(mfaToken, "\n")
-
-		input.TokenCode = aws.String(mfaToken)
+		input.TokenCode = aws.String(askForMFAToken(roleARN))
 	}
 
 	return input
+}
+
+func askForMFAToken(roleARN string) string {
+	// ask for mfa token
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Printf("Enter MFA for %s: ", roleARN)
+	mfaToken, err := reader.ReadString('\n')
+	if err != nil {
+		panic(err)
+	}
+	return strings.TrimRight(mfaToken, "\n")
 }
 
 func getSession() *session.Session {
@@ -80,13 +82,9 @@ func getSession() *session.Session {
 	return sess
 }
 
-func assumeRole(sess *session.Session, input *sts.AssumeRoleInput) *sts.AssumeRoleOutput {
+func assumeRole(sess *session.Session, input *sts.AssumeRoleInput) (*sts.AssumeRoleOutput, error) {
 	svc := sts.New(sess)
-	out, err := svc.AssumeRole(input)
-	if err != nil {
-		panic(err)
-	}
-	return out
+	return svc.AssumeRole(input)
 }
 
 func printExport(val *sts.AssumeRoleOutput) {
@@ -113,9 +111,12 @@ func runCommand(args []string) error {
 }
 
 func main() {
-	toAssume := prepareAssumeInput()
 	sess := getSession()
-	role := assumeRole(sess, toAssume)
+	toAssume := prepareAssumeInput()
+	role, err := assumeRole(sess, toAssume)
+	if err != nil {
+		panic(err)
+	}
 
 	if len(flag.Args()) > 0 {
 		setEnv(role)
