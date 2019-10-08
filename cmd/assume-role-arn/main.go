@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 	"syscall"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -12,9 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/sts"
 )
 
-var roleARN string
-var roleName string
-var externalID string
+var roleARN, roleName, externalID, mfa, mfaToken string
 
 func init() {
 	flag.StringVar(&roleARN, "role", "", "role arn")
@@ -25,6 +25,9 @@ func init() {
 
 	flag.StringVar(&externalID, "extid", "", "external id")
 	flag.StringVar(&externalID, "e", "", "external id (shorthand)")
+
+	flag.StringVar(&mfa, "mfa_serial", "", "mfa serial")
+	flag.StringVar(&mfa, "m", "", "mfa serial (shorthand)")
 
 	flag.Parse()
 
@@ -41,6 +44,21 @@ func prepareAssumeInput() *sts.AssumeRoleInput {
 
 	if externalID != "" {
 		input.ExternalId = aws.String(externalID)
+	}
+
+	if mfa != "" {
+		input.SerialNumber = aws.String(mfa)
+
+		// ask for mfa token
+		reader := bufio.NewReader(os.Stdin)
+		fmt.Printf("Enter MFA for %s: ", roleARN)
+		mfaToken, err := reader.ReadString('\n')
+		if err != nil {
+			panic(err)
+		}
+		mfaToken = strings.TrimRight(mfaToken, "\n")
+
+		input.TokenCode = aws.String(mfaToken)
 	}
 
 	return input
