@@ -14,7 +14,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/sts"
 )
 
-
 var roleARN, roleName, externalID, mfa string
 
 func init() {
@@ -113,6 +112,7 @@ func runCommand(args []string) error {
 func main() {
 	sess := getSession()
 	toAssume := prepareAssumeInput()
+
 	role, err := assumeRole(sess, toAssume)
 	if err != nil {
 		panic(err)
