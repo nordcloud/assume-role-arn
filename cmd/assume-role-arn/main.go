@@ -14,7 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/sts"
 )
 
-var roleARN, roleName, externalID, mfa string
+var roleARN, roleName, externalID, mfa, mfaToken string
 
 func init() {
 	flag.StringVar(&roleARN, "role", "", "role arn")
@@ -26,8 +26,10 @@ func init() {
 	flag.StringVar(&externalID, "extid", "", "external id")
 	flag.StringVar(&externalID, "e", "", "external id (shorthand)")
 
-	flag.StringVar(&mfa, "mfa_serial", "", "mfa serial")
+	flag.StringVar(&mfa, "mfaserial", "", "mfa serial")
 	flag.StringVar(&mfa, "m", "", "mfa serial (shorthand)")
+
+	flag.StringVar(&mfaToken, "mfatoken", "", "mfa token")
 
 	flag.Parse()
 
@@ -48,7 +50,10 @@ func prepareAssumeInput() *sts.AssumeRoleInput {
 
 	if mfa != "" {
 		input.SerialNumber = aws.String(mfa)
-		input.TokenCode = aws.String(askForMFAToken(roleARN))
+		input.TokenCode = aws.String(mfaToken)
+		if mfaToken == "" {
+			input.TokenCode = aws.String(askForMFAToken(roleARN))
+		}
 	}
 
 	return input

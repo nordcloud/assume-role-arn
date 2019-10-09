@@ -1,15 +1,21 @@
 language: go
 go:
-- 1.10.x
+- 1.11.x
+- master
+env:
+- GO111MODULE=on
 git:
   depth: 1
 notifications:
   email: false
+install: true
+before_script:
+- go mod verify
 script:
 - go test -v ./...
 - mkdir bin
-- GO111MODULE=on GOOS=linux go build -o bin/assume-role-arn-linux cmd/assume-role-arn/main.go
-- GO111MODULE=on GOOS=darwin go build -o bin/assume-role-arn-osx cmd/assume-role-arn/main.go
+- GOOS=linux go build -o bin/assume-role-arn-linux cmd/assume-role-arn/main.go
+- GOOS=darwin go build -o bin/assume-role-arn-osx cmd/assume-role-arn/main.go
 deploy:
   provider: releases
   skip_cleanup: true
@@ -21,3 +27,4 @@ deploy:
   on:
     repo: nordcloud/assume-role-arn
     tags: true
+
