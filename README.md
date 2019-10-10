@@ -26,6 +26,8 @@ Available flags:
 *  `-r role_arn` - required, role ARN
 *  `-e external_id` - optional, if you need to specify external id
 *  `-n role_session_name` - probably you don't need this
+*  `-m mfa_serial` - optional, the ARN of MFA virtual device
+*  `-mfatoken token` - optional, the MFA token
 *  `-h` - help
 
 ## CI/CD pipeline example
@@ -50,6 +52,14 @@ eval $(assume-role-arn -r arn:aws:iam::ACCOUNT_NUMBER_STG:role/Deployment)
 *Please adjust output path of curl command and role ARN according to your needs.*
 
 Now you should be able to execute AWS-related commands with your assumed role.
+
+## MFA
+
+If your account is secured with MFA (multi-factor authentication) then you have to provide the ARN of MFA device
+and the token:
+```
+eval $(assume-role-arn -r arn:aws:iam:ACCOUNT_NUMBER_STG:role/Role -m arn:aws:iam::ACCOUNT:mfa/MFA_ID -mfatoken MFATOKEN)
+```
 
 ## Authors
 * Jakub Woźniak, Nordcloud 🇵🇱
