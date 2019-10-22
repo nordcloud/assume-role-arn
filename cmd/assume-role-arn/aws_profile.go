@@ -16,6 +16,7 @@ type AWSPProfile struct {
 	SourceProfile string
 	Region        string
 	MFASerial     string
+	Profile       string
 }
 
 func readAWSProfile(profileName string) (*AWSPProfile, error) {
@@ -39,6 +40,7 @@ func readAWSProfile(profileName string) (*AWSPProfile, error) {
 		SourceProfile: readStringKey(sec, "source_profile"),
 		Region:        readStringKey(sec, "region"),
 		MFASerial:     readStringKey(sec, "mfa_serial"),
+		Profile:       readStringKey(sec, "profile"),
 	}, nil
 }
 

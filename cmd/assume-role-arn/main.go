@@ -17,7 +17,10 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var roleARN, roleName, externalID, mfa, mfaToken, awsProfileName string
+var (
+	roleARN, roleName, externalID, mfa, mfaToken, awsProfileName string
+	verbose, ignoreCache bool
+)
 
 func init() {
 	flag.StringVar(&roleARN, "role", "", "role arn")
@@ -36,6 +39,11 @@ func init() {
 	flag.StringVar(&mfa, "m", "", "MFA serial (shorthand)")
 
 	flag.StringVar(&mfaToken, "mfatoken", "", "MFA token")
+
+	flag.BoolVar(&verbose, "verbose", false, "verbose mode")
+	flag.BoolVar(&verbose, "v", false, "verbose mode (shorthand)")
+
+	flag.BoolVar(&ignoreCache, "ignoreCache", false, "ignore credentials from cache")
 
 	flag.Parse()
 
@@ -86,6 +94,7 @@ func getSession(awsCreds *AWSCreds) *session.Session {
 	}
 	if awsProfileName != "" {
 		awsProfile, _ := readAWSProfile(awsProfileName)
+		logrus.WithFields(logrus.Fields{"awsProfile": awsProfile, "profileName": awsProfileName}).Debug("aws profile")
 		if awsProfile != nil {
 			if awsProfile.SourceProfile != "" {
 				sessionOptions.Profile = awsProfile.SourceProfile
@@ -99,11 +108,14 @@ func getSession(awsCreds *AWSCreds) *session.Session {
 			if awsProfile.Region != "" {
 				sessionOptions.Config.Region = aws.String(awsProfile.Region)
 			}
+		} else {
+			sessionOptions.Profile = awsProfileName
 		}
 	}
 
 	if awsCreds != nil {
-		sessionOptions.Config.Credentials = credentials.NewStaticCredentials(awsCreds.AccessKeyID, awsCreds.AccessKey, awsCreds.SessionToken)
+		sessionOptions.Config.Credentials = credentials.NewStaticCredentials(
+			awsCreds.AccessKeyID, awsCreds.AccessKey, awsCreds.SessionToken)
 	}
 
 	sess, err := session.NewSessionWithOptions(sessionOptions)
@@ -119,17 +131,24 @@ func assumeRole(sess *session.Session, input *sts.AssumeRoleInput) (*AWSCreds, e
 	svc := sts.New(sess)
 	role, err := svc.AssumeRole(input)
 	if err != nil {
+		logrus.WithError(err).Error("unable to assume the role")
 		if awsErr, ok := err.(awserr.Error); ok {
 			if awsErr.Code() == "ExpiredToken" {
-				os.Unsetenv("AWS_ACCESS_KEY_ID")
-				os.Unsetenv("AWS_SECRET_ACCESS_KEY")
-				os.Unsetenv("AWS_SESSION_TOKEN")
+				unsetEnv()
+				logrus.Debug("Expired token - reassume role")
 
 				// Reinitialize session because env vars have changed.
-				sess = getSession()
+				sess = getSession(nil)
 				svc = sts.New(sess)
-
-				return svc.AssumeRole(input)
+				role, err = svc.AssumeRole(input)
+				if err != nil {
+					return nil, err
+				}
+				return &AWSCreds{
+					AccessKeyID:  *role.Credentials.AccessKeyId,
+					AccessKey:    *role.Credentials.SecretAccessKey,
+					SessionToken: *role.Credentials.SessionToken,
+				}, nil
 			}
 		}
 		return nil, err
@@ -141,7 +160,7 @@ func assumeRole(sess *session.Session, input *sts.AssumeRoleInput) (*AWSCreds, e
 	}, nil
 }
 
-func testCreds(sess *session.Session) bool {
+func isCredentialsValid(sess *session.Session) bool {
 	svc := sts.New(sess)
 	_, err := svc.GetCallerIdentity(nil)
 	if err != nil {
@@ -163,6 +182,12 @@ func setEnv(val *AWSCreds) {
 	os.Setenv("AWS_SESSION_TOKEN", val.SessionToken)
 }
 
+func unsetEnv() {
+	os.Unsetenv("AWS_ACCESS_KEY_ID")
+	os.Unsetenv("AWS_SECRET_ACCESS_KEY")
+	os.Unsetenv("AWS_SESSION_TOKEN")
+}
+
 func runCommand(args []string) error {
 	env := os.Environ()
 
@@ -175,7 +200,12 @@ func runCommand(args []string) error {
 }
 
 func main() {
-	logrus.SetLevel(logrus.DebugLevel)
+	if verbose {
+		logrus.SetLevel(logrus.DebugLevel)
+	} else {
+		logrus.SetLevel(logrus.ErrorLevel)
+	}
+
 
 	sessionHash := getSessionHash(roleARN, awsProfileName)
 	creds, err := readCredsFromCache(sessionHash)
@@ -183,29 +213,36 @@ func main() {
 		panic(err)
 	}
 
-	if creds == nil {
+	logrus.WithField("creds", creds).Debug("Credentials read from cache")
+
+	if creds == nil || creds.IsExpired() || ignoreCache {
 		sess := getSession(nil)
 		toAssume := prepareAssumeInput()
 		creds, err = assumeRole(sess, toAssume)
 		if err != nil {
 			panic(err)
 		}
+		logrus.WithField("creds", creds).Debug("write credentials")
 		if err := writeCredsToCache(sessionHash, creds); err != nil {
-			panic(err)
+			logrus.WithError(err).Error("failed to cache credentials")
 		}
 	} else {
 		sess := getSession(creds)
-		if !testCreds(sess) {
-			logrus.Debug("invalid creds")
+		if !isCredentialsValid(sess) {
+			logrus.Debug("invalid credentials")
 			sess = getSession(nil)
 			toAssume := prepareAssumeInput()
 			creds, err = assumeRole(sess, toAssume)
 			if err != nil {
 				panic(err)
 			}
+			if err := writeCredsToCache(sessionHash, creds); err != nil {
+				logrus.WithError(err).Error("failed to cache credentials")
+			}
 		}
 	}
 
+	logrus.WithField("args", flag.Args()).Debug("run command")
 	if len(flag.Args()) > 0 {
 		setEnv(creds)
 		err := runCommand(flag.Args())

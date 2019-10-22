@@ -29,7 +29,8 @@ func (a AWSCreds) IsExpired() bool {
 func readCredsFromCache(sessionHash string) (*AWSCreds, error) {
 	cacheDir, err := os.UserCacheDir()
 	if err != nil {
-		return nil, err
+		logrus.WithError(err).Error("failed to get the user cache dir")
+		return nil, nil
 	}
 
 	cacheFilePath := filepath.Join(cacheDir, getCacheFileName(sessionHash))
@@ -47,13 +48,21 @@ func readCredsFromCache(sessionHash string) (*AWSCreds, error) {
 	var awsCreds AWSCreds
 	credsDecoder := gob.NewDecoder(cacheFile)
 	err = credsDecoder.Decode(&awsCreds)
+	if err != nil {
+		return nil, err
+	}
+	if awsCreds.IsExpired() {
+		return nil, nil
+	}
+
 	return &awsCreds, err
 }
 
 func writeCredsToCache(sessionHash string, awsCreds *AWSCreds) error {
 	cacheDir, err := os.UserCacheDir()
 	if err != nil {
-		return err
+		logrus.WithError(err).Error("failed to get the user cache dir")
+		return nil
 	}
 
 	cacheFile, err := os.Create(filepath.Join(cacheDir, getCacheFileName(sessionHash)))
