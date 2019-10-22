@@ -14,6 +14,7 @@ const (
 type AWSPProfile struct {
 	RoleARN       string
 	SourceProfile string
+	ExternalID    string
 	Region        string
 	MFASerial     string
 	Profile       string
@@ -38,6 +39,7 @@ func readAWSProfile(profileName string) (*AWSPProfile, error) {
 	return &AWSPProfile{
 		RoleARN:       readStringKey(sec, "role_arn"),
 		SourceProfile: readStringKey(sec, "source_profile"),
+		ExternalID:    readStringKey(sec, "external_id"),
 		Region:        readStringKey(sec, "region"),
 		MFASerial:     readStringKey(sec, "mfa_serial"),
 		Profile:       readStringKey(sec, "profile"),

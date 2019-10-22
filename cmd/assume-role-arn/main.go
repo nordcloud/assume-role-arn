@@ -108,6 +108,9 @@ func getSession(awsCreds *AWSCreds) *session.Session {
 			if awsProfile.Region != "" {
 				sessionOptions.Config.Region = aws.String(awsProfile.Region)
 			}
+			if awsProfile.ExternalID != "" {
+				externalID = awsProfile.ExternalID
+			}
 		} else {
 			sessionOptions.Profile = awsProfileName
 		}
