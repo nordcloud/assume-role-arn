@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	expirationTimeDelta = 15 * time.Minute
+	expirationTimeDelta = 60 * time.Minute
 )
 
 type AWSCreds struct {
