@@ -10,11 +10,13 @@ import (
 	"syscall"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sts"
+	"github.com/sirupsen/logrus"
 )
 
-var roleARN, roleName, externalID, mfa, mfaToken string
+var roleARN, roleName, externalID, mfa, mfaToken, awsProfileName string
 
 func init() {
 	flag.StringVar(&roleARN, "role", "", "role arn")
@@ -26,15 +28,18 @@ func init() {
 	flag.StringVar(&externalID, "extid", "", "external id")
 	flag.StringVar(&externalID, "e", "", "external id (shorthand)")
 
-	flag.StringVar(&mfa, "mfaserial", "", "mfa serial")
-	flag.StringVar(&mfa, "m", "", "mfa serial (shorthand)")
+	flag.StringVar(&awsProfileName, "profile", "", "AWS profile")
+	flag.StringVar(&awsProfileName, "p", "", "AWS profile (shorthand)")
 
-	flag.StringVar(&mfaToken, "mfatoken", "", "mfa token")
+	flag.StringVar(&mfa, "mfaserial", "", "MFA serial")
+	flag.StringVar(&mfa, "m", "", "MFA serial (shorthand)")
+
+	flag.StringVar(&mfaToken, "mfatoken", "", "MFA token")
 
 	flag.Parse()
 
-	if roleARN == "" {
-		panic("Role ARN cannot be empty")
+	if roleARN == "" && awsProfileName == "" {
+		panic("Role ARN or profile cannot be empty")
 	}
 }
 
@@ -70,14 +75,37 @@ func askForMFAToken(roleARN string) string {
 	return strings.TrimRight(mfaToken, "\n")
 }
 
-func getSession() *session.Session {
+func getSession(awsCreds *AWSCreds) *session.Session {
 	region := "us-east-1"
-	sess, err := session.NewSessionWithOptions(session.Options{
+	sessionOptions := session.Options{
 		SharedConfigState: session.SharedConfigEnable,
 		Config: aws.Config{
 			Region: aws.String(region),
 		},
-	})
+	}
+	if awsProfileName != "" {
+		awsProfile, _ := readAWSProfile(awsProfileName)
+		if awsProfile != nil {
+			if awsProfile.SourceProfile != "" {
+				sessionOptions.Profile = awsProfile.SourceProfile
+			}
+			if awsProfile.MFASerial != "" {
+				mfa = awsProfile.MFASerial
+			}
+			if awsProfile.RoleARN != "" {
+				roleARN = awsProfile.RoleARN
+			}
+			if awsProfile.Region != "" {
+				sessionOptions.Config.Region = aws.String(awsProfile.Region)
+			}
+		}
+	}
+
+	if awsCreds != nil {
+		sessionOptions.Config.Credentials = credentials.NewStaticCredentials(awsCreds.AccessKeyID, awsCreds.AccessKey, awsCreds.SessionToken)
+	}
+
+	sess, err := session.NewSessionWithOptions(sessionOptions)
 
 	if err != nil {
 		panic(err)
@@ -86,21 +114,39 @@ func getSession() *session.Session {
 	return sess
 }
 
-func assumeRole(sess *session.Session, input *sts.AssumeRoleInput) (*sts.AssumeRoleOutput, error) {
+func assumeRole(sess *session.Session, input *sts.AssumeRoleInput) (*AWSCreds, error) {
 	svc := sts.New(sess)
-	return svc.AssumeRole(input)
+	role, err := svc.AssumeRole(input)
+	if err != nil {
+		return nil, err
+	}
+	return &AWSCreds{
+		AccessKeyID:  *role.Credentials.AccessKeyId,
+		AccessKey:    *role.Credentials.SecretAccessKey,
+		SessionToken: *role.Credentials.SessionToken,
+	}, nil
 }
 
-func printExport(val *sts.AssumeRoleOutput) {
-	fmt.Printf("export AWS_ACCESS_KEY_ID=%s\n", *val.Credentials.AccessKeyId)
-	fmt.Printf("export AWS_SECRET_ACCESS_KEY=%s\n", *val.Credentials.SecretAccessKey)
-	fmt.Printf("export AWS_SESSION_TOKEN=%s\n", *val.Credentials.SessionToken)
+func testCreds(sess *session.Session) bool {
+	svc := sts.New(sess)
+	_, err := svc.GetCallerIdentity(nil)
+	if err != nil {
+		logrus.WithError(err).Debug("Get caller identity failed")
+		return false
+	}
+	return true
 }
 
-func setEnv(val *sts.AssumeRoleOutput) {
-	os.Setenv("AWS_ACCESS_KEY_ID", *val.Credentials.AccessKeyId)
-	os.Setenv("AWS_SECRET_ACCESS_KEY", *val.Credentials.SecretAccessKey)
-	os.Setenv("AWS_SESSION_TOKEN", *val.Credentials.SessionToken)
+func printExport(val *AWSCreds) {
+	fmt.Printf("export AWS_ACCESS_KEY_ID=%s\n", val.AccessKeyID)
+	fmt.Printf("export AWS_SECRET_ACCESS_KEY=%s\n", val.AccessKey)
+	fmt.Printf("export AWS_SESSION_TOKEN=%s\n", val.SessionToken)
+}
+
+func setEnv(val *AWSCreds) {
+	os.Setenv("AWS_ACCESS_KEY_ID", val.AccessKeyID)
+	os.Setenv("AWS_SECRET_ACCESS_KEY", val.AccessKey)
+	os.Setenv("AWS_SESSION_TOKEN", val.SessionToken)
 }
 
 func runCommand(args []string) error {
@@ -115,21 +161,44 @@ func runCommand(args []string) error {
 }
 
 func main() {
-	sess := getSession()
-	toAssume := prepareAssumeInput()
+	logrus.SetLevel(logrus.DebugLevel)
 
-	role, err := assumeRole(sess, toAssume)
+	sessionHash := getSessionHash(roleARN, awsProfileName)
+	creds, err := readCredsFromCache(sessionHash)
 	if err != nil {
 		panic(err)
 	}
 
+	if creds == nil {
+		sess := getSession(nil)
+		toAssume := prepareAssumeInput()
+		creds, err = assumeRole(sess, toAssume)
+		if err != nil {
+			panic(err)
+		}
+		if err := writeCredsToCache(sessionHash, creds); err != nil {
+			panic(err)
+		}
+	} else {
+		sess := getSession(creds)
+		if !testCreds(sess) {
+			logrus.Debug("invalid creds")
+			sess = getSession(nil)
+			toAssume := prepareAssumeInput()
+			creds, err = assumeRole(sess, toAssume)
+			if err != nil {
+				panic(err)
+			}
+		}
+	}
+
 	if len(flag.Args()) > 0 {
-		setEnv(role)
+		setEnv(creds)
 		err := runCommand(flag.Args())
 		if err != nil {
 			panic(err)
 		}
 	} else {
-		printExport(role)
+		printExport(creds)
 	}
 }
