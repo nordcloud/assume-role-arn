@@ -10,6 +10,7 @@ import (
 	"syscall"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sts"
@@ -118,6 +119,19 @@ func assumeRole(sess *session.Session, input *sts.AssumeRoleInput) (*AWSCreds, e
 	svc := sts.New(sess)
 	role, err := svc.AssumeRole(input)
 	if err != nil {
+		if awsErr, ok := err.(awserr.Error); ok {
+			if awsErr.Code() == "ExpiredToken" {
+				os.Unsetenv("AWS_ACCESS_KEY_ID")
+				os.Unsetenv("AWS_SECRET_ACCESS_KEY")
+				os.Unsetenv("AWS_SESSION_TOKEN")
+
+				// Reinitialize session because env vars have changed.
+				sess = getSession()
+				svc = sts.New(sess)
+
+				return svc.AssumeRole(input)
+			}
+		}
 		return nil, err
 	}
 	return &AWSCreds{
