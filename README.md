@@ -28,6 +28,8 @@ Available flags:
 *  `-n role_session_name` - probably you don't need this
 *  `-m mfa_serial` - optional, the ARN of MFA virtual device
 *  `-mfatoken token` - optional, the MFA token
+*  `-profile profile_name` - the name of AWS profile (from $HOME/.aws/config)
+*  `-ignoreCache` - ignore the credentials stored in the cache
 *  `-h` - help
 
 ## CI/CD pipeline example
@@ -59,6 +61,23 @@ If your account is secured with MFA (multi-factor authentication) then you have 
 and the token:
 ```
 eval $(assume-role-arn -r arn:aws:iam:ACCOUNT_NUMBER_STG:role/Role -m arn:aws:iam::ACCOUNT:mfa/MFA_ID -mfatoken MFATOKEN)
+```
+
+## AWS Profile
+
+You can put the role name, external id, and the mfa serial device to the profile in [`$HOME/.aws/config`](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-profiles.html)
+
+```ini
+[profile Dev]
+role_arn = arn:aws:iam::123456789:role/Role
+source_profile = dev
+region = eu-west-1
+mfa_serial = arn:aws:iam::987654321:mfa/john.lenon@world.com
+```
+
+with that defined profile, you can run any command that required AWS credentials (even with MFA) by running
+```shell script
+assume-role-arn-linux -profile Dev aws s3 ls
 ```
 
 ## Authors
