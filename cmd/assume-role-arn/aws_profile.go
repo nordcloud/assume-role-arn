@@ -1,9 +1,7 @@
 package main
 
 import (
-	"errors"
 	"os"
-	"runtime"
 	"strings"
 
 	"gopkg.in/ini.v1"
@@ -23,7 +21,7 @@ type AWSPProfile struct {
 }
 
 func readAWSProfile(profileName string) (*AWSPProfile, error) {
-	homeDir, err := UserHomeDir()
+	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return nil, err
 	}
@@ -55,30 +53,4 @@ func readStringKey(sec *ini.Section, key string) string {
 	}
 
 	return keyValue.Value()
-}
-
-
-func UserHomeDir() (string, error) {
-	env, enverr := "HOME", "$HOME"
-	switch runtime.GOOS {
-	case "windows":
-		env, enverr = "USERPROFILE", "%userprofile%"
-	case "plan9":
-		env, enverr = "home", "$home"
-	}
-	if v := os.Getenv(env); v != "" {
-		return v, nil
-	}
-	// On some geese the home directory is not always defined.
-	switch runtime.GOOS {
-	case "nacl":
-		return "/", nil
-	case "android":
-		return "/sdcard", nil
-	case "darwin":
-		if runtime.GOARCH == "arm" || runtime.GOARCH == "arm64" {
-			return "/", nil
-		}
-	}
-	return "", errors.New(enverr + " is not defined")
 }

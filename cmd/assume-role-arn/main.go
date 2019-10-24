@@ -19,7 +19,7 @@ import (
 
 var (
 	roleARN, roleName, externalID, mfa, mfaToken, awsProfileName string
-	verbose, ignoreCache bool
+	verbose, ignoreCache                                         bool
 )
 
 func init() {
@@ -208,7 +208,6 @@ func main() {
 	} else {
 		logrus.SetLevel(logrus.ErrorLevel)
 	}
-
 
 	sessionHash := getSessionHash(roleARN, awsProfileName)
 	creds, err := readCredsFromCache(sessionHash)

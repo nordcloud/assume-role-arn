@@ -3,11 +3,9 @@ package main
 import (
 	"crypto/sha256"
 	"encoding/gob"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -29,7 +27,7 @@ func (a AWSCreds) IsExpired() bool {
 }
 
 func readCredsFromCache(sessionHash string) (*AWSCreds, error) {
-	cacheDir, err := UserCacheDir()
+	cacheDir, err := os.UserCacheDir()
 	if err != nil {
 		logrus.WithError(err).Error("failed to get the user cache dir")
 		return nil, nil
@@ -61,7 +59,7 @@ func readCredsFromCache(sessionHash string) (*AWSCreds, error) {
 }
 
 func writeCredsToCache(sessionHash string, awsCreds *AWSCreds) error {
-	cacheDir, err := UserCacheDir()
+	cacheDir, err := os.UserCacheDir()
 	if err != nil {
 		logrus.WithError(err).Error("failed to get the user cache dir")
 		return nil
@@ -93,42 +91,4 @@ func getSessionHash(roleARN, profileName string) string {
 	h := sha256.New()
 	h.Write([]byte(fmt.Sprintf("%s-%s", roleARN, profileName)))
 	return fmt.Sprintf("%x", h.Sum(nil))
-}
-
-func UserCacheDir() (string, error) {
-	var dir string
-
-	switch runtime.GOOS {
-	case "windows":
-		dir = os.Getenv("LocalAppData")
-		if dir == "" {
-			return "", errors.New("%LocalAppData% is not defined")
-		}
-
-	case "darwin":
-		dir = os.Getenv("HOME")
-		if dir == "" {
-			return "", errors.New("$HOME is not defined")
-		}
-		dir += "/Library/Caches"
-
-	case "plan9":
-		dir = os.Getenv("home")
-		if dir == "" {
-			return "", errors.New("$home is not defined")
-		}
-		dir += "/lib/cache"
-
-	default: // Unix
-		dir = os.Getenv("XDG_CACHE_HOME")
-		if dir == "" {
-			dir = os.Getenv("HOME")
-			if dir == "" {
-				return "", errors.New("neither $XDG_CACHE_HOME nor $HOME are defined")
-			}
-			dir += "/.cache"
-		}
-	}
-
-	return dir, nil
 }
