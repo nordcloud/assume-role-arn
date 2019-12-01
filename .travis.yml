@@ -2,8 +2,7 @@ language: go
 go:
 - 1.12.x
 env:
-- GO111MODULE=on
-- CGOENABLED=0
+- GO111MODULE=on CGOENABLED=0
 git:
   depth: 1
 notifications:
