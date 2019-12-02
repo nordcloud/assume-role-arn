@@ -15,6 +15,10 @@ const (
 	expirationTimeDelta = 60 * time.Minute
 )
 
+var (
+	defaultCacheDir = "assume-role-arn"
+)
+
 type AWSCreds struct {
 	AccessKeyID  string
 	AccessKey    string
@@ -26,15 +30,15 @@ func (a AWSCreds) IsExpired() bool {
 	return time.Now().Unix() > a.Expiration.Unix()
 }
 
-type CredsCache interface {
-	ReadCreds(sessionHash string) (*AWSCreds, error)
-	WriteCreds(sessionHash string, awsCreds *AWSCreds) error
+type CredentialsCacher interface {
+	Read(sessionHash string) (*AWSCreds, error)
+	Write(sessionHash string, awsCreds *AWSCreds) error
 }
 
-type FileCredsCache struct{}
+type FileCredentialsCache struct{}
 
-func (c *FileCredsCache) ReadCreds(sessionHash string) (*AWSCreds, error) {
-	cacheDir, err := os.UserCacheDir()
+func (c *FileCredentialsCache) Read(sessionHash string) (*AWSCreds, error) {
+	cacheDir, err := getCacheDir()
 	if err != nil {
 		logrus.WithError(err).Error("failed to get the user cache dir")
 		return nil, nil
@@ -65,11 +69,14 @@ func (c *FileCredsCache) ReadCreds(sessionHash string) (*AWSCreds, error) {
 	return &awsCreds, err
 }
 
-func (c *FileCredsCache) WriteCreds(sessionHash string, awsCreds *AWSCreds) error {
-	cacheDir, err := os.UserCacheDir()
+func (c *FileCredentialsCache) Write(sessionHash string, awsCreds *AWSCreds) error {
+	cacheDir, err := getCacheDir()
 	if err != nil {
 		logrus.WithError(err).Error("failed to get the user cache dir")
 		return nil
+	}
+	if err := os.MkdirAll(cacheDir, 0700); err != nil {
+		return err
 	}
 
 	cacheFile, err := os.Create(filepath.Join(cacheDir, getCacheFileName(sessionHash)))
@@ -90,6 +97,14 @@ func (c *FileCredsCache) WriteCreds(sessionHash string, awsCreds *AWSCreds) erro
 	return nil
 }
 
+func getCacheDir() (string, error) {
+	d, err := os.UserCacheDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(d, defaultCacheDir), nil
+}
+
 func getCacheFileName(sessionHash string) string {
 	return fmt.Sprintf("assume-role-%s", sessionHash)
 }
@@ -100,11 +115,11 @@ func getSessionHash(roleARN, profileName string) string {
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
-type DummyCredsCache struct{}
+type DummyCredentialsCache struct{}
 
-func (d *DummyCredsCache) ReadCreds(sessionHash string) (*AWSCreds, error) {
+func (d *DummyCredentialsCache) Read(sessionHash string) (*AWSCreds, error) {
 	return nil, nil
 }
-func (d *DummyCredsCache) WriteCreds(sessionHash string, awsCreds *AWSCreds) error {
+func (d *DummyCredentialsCache) Write(sessionHash string, awsCreds *AWSCreds) error {
 	return nil
 }

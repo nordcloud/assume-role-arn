@@ -212,14 +212,14 @@ func main() {
 
 	sessionHash := getSessionHash(roleARN, awsProfileName)
 
-	var credsCache CredsCache
+	var credsCache CredentialsCacher
 	if skipCache {
-		credsCache = new(DummyCredsCache)
+		credsCache = &DummyCredentialsCache{}
 	} else {
-		credsCache = new(FileCredsCache)
+		credsCache = &FileCredentialsCache{}
 	}
 
-	creds, err := credsCache.ReadCreds(sessionHash)
+	creds, err := credsCache.Read(sessionHash)
 	if err != nil {
 		panic(err)
 	}
@@ -234,8 +234,8 @@ func main() {
 			panic(err)
 		}
 		logrus.WithField("creds", creds).Debug("write credentials")
-		if err := credsCache.WriteCreds(sessionHash, creds); err != nil {
-			logrus.WithError(err).Warning("unable to cache credentials")
+		if err := credsCache.Write(sessionHash, creds); err != nil {
+			logrus.WithError(err).Error("unable to cache credentials")
 		}
 	} else {
 		sess := getSession(creds)
@@ -247,8 +247,8 @@ func main() {
 			if err != nil {
 				panic(err)
 			}
-			if err := credsCache.WriteCreds(sessionHash, creds); err != nil {
-				logrus.WithError(err).Warning("unable to cache credentials")
+			if err := credsCache.Write(sessionHash, creds); err != nil {
+				logrus.WithError(err).Error("unable to cache credentials")
 			}
 		}
 	}
