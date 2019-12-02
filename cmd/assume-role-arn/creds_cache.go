@@ -26,7 +26,14 @@ func (a AWSCreds) IsExpired() bool {
 	return time.Now().Unix() > a.Expiration.Unix()
 }
 
-func readCredsFromCache(sessionHash string) (*AWSCreds, error) {
+type CredsCache interface {
+	ReadCreds(sessionHash string) (*AWSCreds, error)
+	WriteCreds(sessionHash string, awsCreds *AWSCreds) error
+}
+
+type FileCredsCache struct{}
+
+func (c *FileCredsCache) ReadCreds(sessionHash string) (*AWSCreds, error) {
 	cacheDir, err := os.UserCacheDir()
 	if err != nil {
 		logrus.WithError(err).Error("failed to get the user cache dir")
@@ -58,7 +65,7 @@ func readCredsFromCache(sessionHash string) (*AWSCreds, error) {
 	return &awsCreds, err
 }
 
-func writeCredsToCache(sessionHash string, awsCreds *AWSCreds) error {
+func (c *FileCredsCache) WriteCreds(sessionHash string, awsCreds *AWSCreds) error {
 	cacheDir, err := os.UserCacheDir()
 	if err != nil {
 		logrus.WithError(err).Error("failed to get the user cache dir")
@@ -91,4 +98,13 @@ func getSessionHash(roleARN, profileName string) string {
 	h := sha256.New()
 	h.Write([]byte(fmt.Sprintf("%s-%s", roleARN, profileName)))
 	return fmt.Sprintf("%x", h.Sum(nil))
+}
+
+type DummyCredsCache struct{}
+
+func (d *DummyCredsCache) ReadCreds(sessionHash string) (*AWSCreds, error) {
+	return nil, nil
+}
+func (d *DummyCredsCache) WriteCreds(sessionHash string, awsCreds *AWSCreds) error {
+	return nil
 }

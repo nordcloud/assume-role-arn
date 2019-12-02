@@ -19,7 +19,7 @@ import (
 
 var (
 	roleARN, roleName, externalID, mfa, mfaToken, awsProfileName string
-	verbose, ignoreCache                                         bool
+	verbose, ignoreCache, skipCache                              bool
 )
 
 func init() {
@@ -43,7 +43,8 @@ func init() {
 	flag.BoolVar(&verbose, "verbose", false, "verbose mode")
 	flag.BoolVar(&verbose, "v", false, "verbose mode (shorthand)")
 
-	flag.BoolVar(&ignoreCache, "ignoreCache", false, "ignore credentials from cache")
+	flag.BoolVar(&ignoreCache, "ignoreCache", false, "ignore credentials stored in cache, request new one")
+	flag.BoolVar(&skipCache, "skipCache", false, "do not cache credentials")
 
 	flag.Parse()
 
@@ -210,7 +211,15 @@ func main() {
 	}
 
 	sessionHash := getSessionHash(roleARN, awsProfileName)
-	creds, err := readCredsFromCache(sessionHash)
+
+	var credsCache CredsCache
+	if skipCache {
+		credsCache = new(DummyCredsCache)
+	} else {
+		credsCache = new(FileCredsCache)
+	}
+
+	creds, err := credsCache.ReadCreds(sessionHash)
 	if err != nil {
 		panic(err)
 	}
@@ -225,8 +234,8 @@ func main() {
 			panic(err)
 		}
 		logrus.WithField("creds", creds).Debug("write credentials")
-		if err := writeCredsToCache(sessionHash, creds); err != nil {
-			logrus.WithError(err).Error("failed to cache credentials")
+		if err := credsCache.WriteCreds(sessionHash, creds); err != nil {
+			logrus.WithError(err).Warning("unable to cache credentials")
 		}
 	} else {
 		sess := getSession(creds)
@@ -238,8 +247,8 @@ func main() {
 			if err != nil {
 				panic(err)
 			}
-			if err := writeCredsToCache(sessionHash, creds); err != nil {
-				logrus.WithError(err).Error("failed to cache credentials")
+			if err := credsCache.WriteCreds(sessionHash, creds); err != nil {
+				logrus.WithError(err).Warning("unable to cache credentials")
 			}
 		}
 	}
