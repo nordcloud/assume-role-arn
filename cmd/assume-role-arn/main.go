@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sts"
 	"github.com/sirupsen/logrus"
@@ -121,11 +122,13 @@ func getSession(awsCreds *AWSCreds) *session.Session {
 			awsCreds.AccessKeyID, awsCreds.AccessKey, awsCreds.SessionToken)
 	}
 
-	sess, err := session.NewSessionWithOptions(sessionOptions)
-
-	if err != nil {
-		panic(err)
-	}
+	sess := session.Must(session.NewSessionWithOptions(sessionOptions))
+	sess.Handlers.Retry.PushFront(func(r *request.Request) {
+		if r.IsErrorExpired() {
+			logrus.Debug("Credentials expired. Stop retrying.")
+			r.Retryable = aws.Bool(false)
+		}
+	})
 
 	return sess
 }
