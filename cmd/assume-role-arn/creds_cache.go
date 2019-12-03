@@ -13,10 +13,7 @@ import (
 
 const (
 	expirationTimeDelta = 60 * time.Minute
-)
-
-var (
-	defaultCacheDir = "assume-role-arn"
+	defaultCacheDir     = "assume-role-arn"
 )
 
 type AWSCreds struct {

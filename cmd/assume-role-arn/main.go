@@ -135,7 +135,6 @@ func assumeRole(sess *session.Session, input *sts.AssumeRoleInput) (*AWSCreds, e
 	svc := sts.New(sess)
 	role, err := svc.AssumeRole(input)
 	if err != nil {
-		logrus.WithError(err).Error("unable to assume the role")
 		if awsErr, ok := err.(awserr.Error); ok {
 			if awsErr.Code() == "ExpiredToken" {
 				unsetEnv()
@@ -212,16 +211,14 @@ func main() {
 
 	sessionHash := getSessionHash(roleARN, awsProfileName)
 
-	var credsCache CredentialsCacher
+	var credsCache CredentialsCacher = &FileCredentialsCache{}
 	if skipCache {
 		credsCache = &DummyCredentialsCache{}
-	} else {
-		credsCache = &FileCredentialsCache{}
 	}
 
 	creds, err := credsCache.Read(sessionHash)
 	if err != nil {
-		panic(err)
+		logrus.WithError(err).Fatal("failed to read credentials from cache")
 	}
 
 	logrus.WithField("creds", creds).Debug("Credentials read from cache")
@@ -231,11 +228,11 @@ func main() {
 		toAssume := prepareAssumeInput()
 		creds, err = assumeRole(sess, toAssume)
 		if err != nil {
-			panic(err)
+			logrus.WithError(err).Fatal("failed to assume role")
 		}
 		logrus.WithField("creds", creds).Debug("write credentials")
 		if err := credsCache.Write(sessionHash, creds); err != nil {
-			logrus.WithError(err).Error("unable to cache credentials")
+			logrus.WithError(err).Fatal("unable to cache credentials")
 		}
 	} else {
 		sess := getSession(creds)
@@ -245,10 +242,10 @@ func main() {
 			toAssume := prepareAssumeInput()
 			creds, err = assumeRole(sess, toAssume)
 			if err != nil {
-				panic(err)
+				logrus.WithError(err).Fatal("failed to assume role")
 			}
 			if err := credsCache.Write(sessionHash, creds); err != nil {
-				logrus.WithError(err).Error("unable to cache credentials")
+				logrus.WithError(err).Fatal("unable to cache credentials")
 			}
 		}
 	}
@@ -258,7 +255,7 @@ func main() {
 		setEnv(creds)
 		err := runCommand(flag.Args())
 		if err != nil {
-			panic(err)
+			logrus.WithError(err).WithFields(logrus.Fields{"cmd_args": flag.Args()}).Fatal("failed to ru command")
 		}
 	} else {
 		printExport(creds)
