@@ -13,6 +13,7 @@ import (
 
 const (
 	expirationTimeDelta = 60 * time.Minute
+	defaultCacheDir     = "assume-role-arn"
 )
 
 type AWSCreds struct {
@@ -26,8 +27,15 @@ func (a AWSCreds) IsExpired() bool {
 	return time.Now().Unix() > a.Expiration.Unix()
 }
 
-func readCredsFromCache(sessionHash string) (*AWSCreds, error) {
-	cacheDir, err := os.UserCacheDir()
+type CredentialsCacher interface {
+	Read(sessionHash string) (*AWSCreds, error)
+	Write(sessionHash string, awsCreds *AWSCreds) error
+}
+
+type FileCredentialsCache struct{}
+
+func (c *FileCredentialsCache) Read(sessionHash string) (*AWSCreds, error) {
+	cacheDir, err := getCacheDir()
 	if err != nil {
 		logrus.WithError(err).Error("failed to get the user cache dir")
 		return nil, nil
@@ -58,11 +66,14 @@ func readCredsFromCache(sessionHash string) (*AWSCreds, error) {
 	return &awsCreds, err
 }
 
-func writeCredsToCache(sessionHash string, awsCreds *AWSCreds) error {
-	cacheDir, err := os.UserCacheDir()
+func (c *FileCredentialsCache) Write(sessionHash string, awsCreds *AWSCreds) error {
+	cacheDir, err := getCacheDir()
 	if err != nil {
 		logrus.WithError(err).Error("failed to get the user cache dir")
 		return nil
+	}
+	if err := os.MkdirAll(cacheDir, 0700); err != nil {
+		return err
 	}
 
 	cacheFile, err := os.Create(filepath.Join(cacheDir, getCacheFileName(sessionHash)))
@@ -83,6 +94,14 @@ func writeCredsToCache(sessionHash string, awsCreds *AWSCreds) error {
 	return nil
 }
 
+func getCacheDir() (string, error) {
+	d, err := os.UserCacheDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(d, defaultCacheDir), nil
+}
+
 func getCacheFileName(sessionHash string) string {
 	return fmt.Sprintf("assume-role-%s", sessionHash)
 }
@@ -91,4 +110,13 @@ func getSessionHash(roleARN, profileName string) string {
 	h := sha256.New()
 	h.Write([]byte(fmt.Sprintf("%s-%s", roleARN, profileName)))
 	return fmt.Sprintf("%x", h.Sum(nil))
+}
+
+type DummyCredentialsCache struct{}
+
+func (d *DummyCredentialsCache) Read(sessionHash string) (*AWSCreds, error) {
+	return nil, nil
+}
+func (d *DummyCredentialsCache) Write(sessionHash string, awsCreds *AWSCreds) error {
+	return nil
 }

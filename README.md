@@ -30,6 +30,7 @@ Available flags:
 *  `-mfatoken token` - optional, the MFA token
 *  `-profile profile_name` - the name of AWS profile (from $HOME/.aws/config)
 *  `-ignoreCache` - ignore the credentials stored in the cache
+*  `-skipCache` - skip the credential cache
 *  `-h` - help
 
 ## CI/CD pipeline example

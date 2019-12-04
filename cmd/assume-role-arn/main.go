@@ -20,7 +20,7 @@ import (
 
 var (
 	roleARN, roleName, externalID, mfa, mfaToken, awsProfileName string
-	verbose, version, ignoreCache                                bool
+	verbose, ignoreCache, skipCache, version                              bool
 )
 
 func init() {
@@ -45,7 +45,8 @@ func init() {
 	flag.BoolVar(&verbose, "v", false, "verbose mode (shorthand)")
 	flag.BoolVar(&version, "version", false, "Print version")
 
-	flag.BoolVar(&ignoreCache, "ignoreCache", false, "ignore credentials from cache")
+	flag.BoolVar(&ignoreCache, "ignoreCache", false, "ignore credentials stored in cache, request new one")
+	flag.BoolVar(&skipCache, "skipCache", false, "do not cache credentials")
 
 	flag.Parse()
 }
@@ -134,7 +135,6 @@ func assumeRole(sess *session.Session, input *sts.AssumeRoleInput) (*AWSCreds, e
 	svc := sts.New(sess)
 	role, err := svc.AssumeRole(input)
 	if err != nil {
-		logrus.WithError(err).Error("unable to assume the role")
 		if awsErr, ok := err.(awserr.Error); ok {
 			if awsErr.Code() == "ExpiredToken" {
 				unsetEnv()
@@ -219,9 +219,15 @@ func main() {
 	}
 
 	sessionHash := getSessionHash(roleARN, awsProfileName)
-	creds, err := readCredsFromCache(sessionHash)
+	
+	var credsCache CredentialsCacher = &FileCredentialsCache{}
+	if skipCache {
+		credsCache = &DummyCredentialsCache{}
+	}
+
+	creds, err := credsCache.Read(sessionHash)
 	if err != nil {
-		panic(err)
+		logrus.WithError(err).Fatal("failed to read credentials from cache")
 	}
 
 	logrus.WithField("creds", creds).Debug("Credentials read from cache")
@@ -231,11 +237,11 @@ func main() {
 		toAssume := prepareAssumeInput()
 		creds, err = assumeRole(sess, toAssume)
 		if err != nil {
-			panic(err)
+			logrus.WithError(err).Fatal("failed to assume role")
 		}
 		logrus.WithField("creds", creds).Debug("write credentials")
-		if err := writeCredsToCache(sessionHash, creds); err != nil {
-			logrus.WithError(err).Error("failed to cache credentials")
+		if err := credsCache.Write(sessionHash, creds); err != nil {
+			logrus.WithError(err).Fatal("unable to cache credentials")
 		}
 	} else {
 		sess := getSession(creds)
@@ -245,10 +251,10 @@ func main() {
 			toAssume := prepareAssumeInput()
 			creds, err = assumeRole(sess, toAssume)
 			if err != nil {
-				panic(err)
+				logrus.WithError(err).Fatal("failed to assume role")
 			}
-			if err := writeCredsToCache(sessionHash, creds); err != nil {
-				logrus.WithError(err).Error("failed to cache credentials")
+			if err := credsCache.Write(sessionHash, creds); err != nil {
+				logrus.WithError(err).Fatal("unable to cache credentials")
 			}
 		}
 	}
@@ -258,7 +264,7 @@ func main() {
 		setEnv(creds)
 		err := runCommand(flag.Args())
 		if err != nil {
-			panic(err)
+			logrus.WithError(err).WithFields(logrus.Fields{"cmd_args": flag.Args()}).Fatal("failed to run the command")
 		}
 	} else {
 		printExport(creds)
