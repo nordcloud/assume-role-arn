@@ -255,7 +255,7 @@ func main() {
 		setEnv(creds)
 		err := runCommand(flag.Args())
 		if err != nil {
-			logrus.WithError(err).WithFields(logrus.Fields{"cmd_args": flag.Args()}).Fatal("failed to ru command")
+			logrus.WithError(err).WithFields(logrus.Fields{"cmd_args": flag.Args()}).Fatal("failed to run the command")
 		}
 	} else {
 		printExport(creds)
