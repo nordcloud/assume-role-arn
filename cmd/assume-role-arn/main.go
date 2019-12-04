@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sts"
 	"github.com/sirupsen/logrus"
@@ -19,7 +20,7 @@ import (
 
 var (
 	roleARN, roleName, externalID, mfa, mfaToken, awsProfileName string
-	verbose, ignoreCache, skipCache                              bool
+	verbose, ignoreCache, skipCache, version                              bool
 )
 
 func init() {
@@ -42,15 +43,12 @@ func init() {
 
 	flag.BoolVar(&verbose, "verbose", false, "verbose mode")
 	flag.BoolVar(&verbose, "v", false, "verbose mode (shorthand)")
+	flag.BoolVar(&version, "version", false, "Print version")
 
 	flag.BoolVar(&ignoreCache, "ignoreCache", false, "ignore credentials stored in cache, request new one")
 	flag.BoolVar(&skipCache, "skipCache", false, "do not cache credentials")
 
 	flag.Parse()
-
-	if roleARN == "" && awsProfileName == "" {
-		panic("Role ARN or profile cannot be empty")
-	}
 }
 
 func prepareAssumeInput() *sts.AssumeRoleInput {
@@ -122,11 +120,13 @@ func getSession(awsCreds *AWSCreds) *session.Session {
 			awsCreds.AccessKeyID, awsCreds.AccessKey, awsCreds.SessionToken)
 	}
 
-	sess, err := session.NewSessionWithOptions(sessionOptions)
-
-	if err != nil {
-		panic(err)
-	}
+	sess := session.Must(session.NewSessionWithOptions(sessionOptions))
+	sess.Handlers.Retry.PushFront(func(r *request.Request) {
+		if r.IsErrorExpired() {
+			logrus.Debug("Credentials expired. Stop retrying.")
+			r.Retryable = aws.Bool(false)
+		}
+	})
 
 	return sess
 }
@@ -203,14 +203,23 @@ func runCommand(args []string) error {
 }
 
 func main() {
+	if version {
+		fmt.Fprintf(os.Stderr, "assume-role-arn v%s\n", formattedVersion())
+		os.Exit(0)
+	}
+
 	if verbose {
 		logrus.SetLevel(logrus.DebugLevel)
 	} else {
 		logrus.SetLevel(logrus.ErrorLevel)
 	}
 
-	sessionHash := getSessionHash(roleARN, awsProfileName)
+	if roleARN == "" && awsProfileName == "" {
+		panic("Role ARN or profile cannot be empty")
+	}
 
+	sessionHash := getSessionHash(roleARN, awsProfileName)
+	
 	var credsCache CredentialsCacher = &FileCredentialsCache{}
 	if skipCache {
 		credsCache = &DummyCredentialsCache{}
