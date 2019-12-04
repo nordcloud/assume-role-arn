@@ -20,7 +20,7 @@ import (
 
 var (
 	roleARN, roleName, externalID, mfa, mfaToken, awsProfileName string
-	verbose, ignoreCache                                         bool
+	verbose, version, ignoreCache                                bool
 )
 
 func init() {
@@ -43,14 +43,11 @@ func init() {
 
 	flag.BoolVar(&verbose, "verbose", false, "verbose mode")
 	flag.BoolVar(&verbose, "v", false, "verbose mode (shorthand)")
+	flag.BoolVar(&version, "version", false, "Print version")
 
 	flag.BoolVar(&ignoreCache, "ignoreCache", false, "ignore credentials from cache")
 
 	flag.Parse()
-
-	if roleARN == "" && awsProfileName == "" {
-		panic("Role ARN or profile cannot be empty")
-	}
 }
 
 func prepareAssumeInput() *sts.AssumeRoleInput {
@@ -206,10 +203,19 @@ func runCommand(args []string) error {
 }
 
 func main() {
+	if version {
+		fmt.Fprintf(os.Stderr, "assume-role-arn v%s\n", formattedVersion())
+		os.Exit(0)
+	}
+
 	if verbose {
 		logrus.SetLevel(logrus.DebugLevel)
 	} else {
 		logrus.SetLevel(logrus.ErrorLevel)
+	}
+
+	if roleARN == "" && awsProfileName == "" {
+		panic("Role ARN or profile cannot be empty")
 	}
 
 	sessionHash := getSessionHash(roleARN, awsProfileName)
