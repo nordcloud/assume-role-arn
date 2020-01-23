@@ -133,6 +133,12 @@ func getSession(awsCreds *AWSCreds) *session.Session {
 
 func assumeRole(sess *session.Session, input *sts.AssumeRoleInput) (*AWSCreds, error) {
 	svc := sts.New(sess)
+	credsMeta := AWSCredsMeta{
+		RoleName:    strings.Split(roleARN, "/")[1],
+		AccountID:   strings.Split(roleARN, ":")[4],
+		ProfileName: awsProfileName,
+	}
+
 	role, err := svc.AssumeRole(input)
 	if err != nil {
 		if awsErr, ok := err.(awserr.Error); ok {
@@ -151,6 +157,7 @@ func assumeRole(sess *session.Session, input *sts.AssumeRoleInput) (*AWSCreds, e
 					AccessKeyID:  *role.Credentials.AccessKeyId,
 					AccessKey:    *role.Credentials.SecretAccessKey,
 					SessionToken: *role.Credentials.SessionToken,
+					Meta:         credsMeta,
 				}, nil
 			}
 		}
@@ -160,6 +167,7 @@ func assumeRole(sess *session.Session, input *sts.AssumeRoleInput) (*AWSCreds, e
 		AccessKeyID:  *role.Credentials.AccessKeyId,
 		AccessKey:    *role.Credentials.SecretAccessKey,
 		SessionToken: *role.Credentials.SessionToken,
+		Meta:         credsMeta,
 	}, nil
 }
 
@@ -177,6 +185,9 @@ func printExport(val *AWSCreds) {
 	fmt.Printf("export AWS_ACCESS_KEY_ID=%s\n", val.AccessKeyID)
 	fmt.Printf("export AWS_SECRET_ACCESS_KEY=%s\n", val.AccessKey)
 	fmt.Printf("export AWS_SESSION_TOKEN=%s\n", val.SessionToken)
+	fmt.Printf("export AWS_ROLE_NAME=%s\n", val.Meta.RoleName)
+	fmt.Printf("export AWS_ACCOUNT_ID=%s\n", val.Meta.AccountID)
+	fmt.Printf("export AWS_PROFILE_NAME=%s\n", val.Meta.ProfileName)
 }
 
 func setEnv(val *AWSCreds) {
@@ -189,6 +200,9 @@ func unsetEnv() {
 	os.Unsetenv("AWS_ACCESS_KEY_ID")
 	os.Unsetenv("AWS_SECRET_ACCESS_KEY")
 	os.Unsetenv("AWS_SESSION_TOKEN")
+	os.Unsetenv("AWS_ROLE_NAME")
+	os.Unsetenv("AWS_ACCOUNT_ID")
+	os.Unsetenv("AWS_PROFILE_NAME")
 }
 
 func runCommand(args []string) error {

@@ -16,11 +16,18 @@ const (
 	defaultCacheDir     = "assume-role-arn"
 )
 
+type AWSCredsMeta struct {
+	RoleName    string
+	AccountID   string
+	ProfileName string
+}
+
 type AWSCreds struct {
 	AccessKeyID  string
 	AccessKey    string
 	SessionToken string
 	Expiration   time.Time
+	Meta         AWSCredsMeta
 }
 
 func (a AWSCreds) IsExpired() bool {
