@@ -18,9 +18,14 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+const (
+	envAWSDefaultRegion = "AWS_DEFAULT_REGION"
+	defaultRegion       = "us-east-1"
+)
+
 var (
 	roleARN, roleName, externalID, mfa, mfaToken, awsProfileName string
-	verbose, ignoreCache, skipCache, version                              bool
+	verbose, ignoreCache, skipCache, version                     bool
 )
 
 func init() {
@@ -83,8 +88,17 @@ func askForMFAToken(roleARN string) string {
 	return strings.TrimRight(mfaToken, "\n")
 }
 
+func getRegion() string {
+	region := os.Getenv(envAWSDefaultRegion)
+	if region == "" {
+		return defaultRegion
+	}
+
+	return region
+}
+
 func getSession(awsCreds *AWSCreds) *session.Session {
-	region := "us-east-1"
+	region := getRegion()
 	sessionOptions := session.Options{
 		SharedConfigState: session.SharedConfigEnable,
 		Config: aws.Config{
@@ -233,7 +247,7 @@ func main() {
 	}
 
 	sessionHash := getSessionHash(roleARN, awsProfileName)
-	
+
 	var credsCache CredentialsCacher = &FileCredentialsCache{}
 	if skipCache {
 		credsCache = &DummyCredentialsCache{}
