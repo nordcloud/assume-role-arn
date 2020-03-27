@@ -24,8 +24,8 @@ const (
 )
 
 var (
-	roleARN, roleName, externalID, mfa, mfaToken, awsProfileName string
-	verbose, ignoreCache, skipCache, version                     bool
+	roleARN, roleName, externalID, mfa, mfaToken, region, awsProfileName string
+	verbose, ignoreCache, skipCache, version                             bool
 )
 
 func init() {
@@ -45,6 +45,7 @@ func init() {
 	flag.StringVar(&mfa, "m", "", "MFA serial (shorthand)")
 
 	flag.StringVar(&mfaToken, "mfatoken", "", "MFA token")
+	flag.StringVar(&region, "region", "", "AWS region")
 
 	flag.BoolVar(&verbose, "verbose", false, "verbose mode")
 	flag.BoolVar(&verbose, "v", false, "verbose mode (shorthand)")
@@ -89,12 +90,15 @@ func askForMFAToken(roleARN string) string {
 }
 
 func getRegion() string {
-	region := os.Getenv(envAWSDefaultRegion)
-	if region == "" {
-		return defaultRegion
+	if region != "" {
+		return region
 	}
 
-	return region
+	if region := os.Getenv(envAWSDefaultRegion); region != "" {
+		return region
+	}
+
+	return defaultRegion
 }
 
 func getSession(awsCreds *AWSCreds) *session.Session {
@@ -105,6 +109,7 @@ func getSession(awsCreds *AWSCreds) *session.Session {
 			Region: aws.String(region),
 		},
 	}
+
 	if awsProfileName != "" {
 		awsProfile, _ := readAWSProfile(awsProfileName)
 		logrus.WithFields(logrus.Fields{"awsProfile": awsProfile, "profileName": awsProfileName}).Debug("aws profile")
