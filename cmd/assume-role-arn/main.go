@@ -18,9 +18,14 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+const (
+	envAWSDefaultRegion = "AWS_DEFAULT_REGION"
+	defaultRegion       = "us-east-1"
+)
+
 var (
-	roleARN, roleName, externalID, mfa, mfaToken, awsProfileName string
-	verbose, ignoreCache, skipCache, version                              bool
+	roleARN, roleName, externalID, mfa, mfaToken, region, awsProfileName string
+	verbose, ignoreCache, skipCache, version                             bool
 )
 
 func init() {
@@ -40,6 +45,7 @@ func init() {
 	flag.StringVar(&mfa, "m", "", "MFA serial (shorthand)")
 
 	flag.StringVar(&mfaToken, "mfatoken", "", "MFA token")
+	flag.StringVar(&region, "region", "", "AWS region")
 
 	flag.BoolVar(&verbose, "verbose", false, "verbose mode")
 	flag.BoolVar(&verbose, "v", false, "verbose mode (shorthand)")
@@ -83,14 +89,27 @@ func askForMFAToken(roleARN string) string {
 	return strings.TrimRight(mfaToken, "\n")
 }
 
+func getRegion() string {
+	if region != "" {
+		return region
+	}
+
+	if region := os.Getenv(envAWSDefaultRegion); region != "" {
+		return region
+	}
+
+	return defaultRegion
+}
+
 func getSession(awsCreds *AWSCreds) *session.Session {
-	region := "us-east-1"
+	region := getRegion()
 	sessionOptions := session.Options{
 		SharedConfigState: session.SharedConfigEnable,
 		Config: aws.Config{
 			Region: aws.String(region),
 		},
 	}
+
 	if awsProfileName != "" {
 		awsProfile, _ := readAWSProfile(awsProfileName)
 		logrus.WithFields(logrus.Fields{"awsProfile": awsProfile, "profileName": awsProfileName}).Debug("aws profile")
@@ -233,7 +252,7 @@ func main() {
 	}
 
 	sessionHash := getSessionHash(roleARN, awsProfileName)
-	
+
 	var credsCache CredentialsCacher = &FileCredentialsCache{}
 	if skipCache {
 		credsCache = &DummyCredentialsCache{}
