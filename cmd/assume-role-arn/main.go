@@ -230,7 +230,7 @@ func prefixEnvVar(envVarName string) string {
 	if len(envPrefix) == 0 {
 		return envVarName
 	}
-	return fmt.Sprintf("%s_%s", envPrefix, envVarName)
+	return fmt.Sprintf("%s%s", envPrefix, envVarName)
 }
 
 func runCommand(args []string) error {
