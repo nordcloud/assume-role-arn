@@ -34,6 +34,7 @@ Available flags:
 *  `-profile profile_name` - the name of AWS profile (from $HOME/.aws/config)
 *  `-ignoreCache` - ignore the credentials stored in the cache
 *  `-skipCache` - skip the credential cache
+*  `-envprefix` - add prefix for the exported ENVs (default: "")
 *  `-h` - help
 
 ## CI/CD pipeline example
