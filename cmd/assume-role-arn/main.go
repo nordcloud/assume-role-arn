@@ -24,8 +24,8 @@ const (
 )
 
 var (
-	roleARN, roleName, externalID, mfa, mfaToken, region, awsProfileName string
-	verbose, ignoreCache, skipCache, version                             bool
+	roleARN, roleName, externalID, mfa, mfaToken, region, awsProfileName, envPrefix string
+	verbose, ignoreCache, skipCache, version                                        bool
 )
 
 func init() {
@@ -53,6 +53,8 @@ func init() {
 
 	flag.BoolVar(&ignoreCache, "ignoreCache", false, "ignore credentials stored in cache, request new one")
 	flag.BoolVar(&skipCache, "skipCache", false, "do not cache credentials")
+
+	flag.StringVar(&envPrefix, "envprefix", "", "prefix for ENV variables")
 
 	flag.Parse()
 }
@@ -201,27 +203,34 @@ func isCredentialsValid(sess *session.Session) bool {
 }
 
 func printExport(val *AWSCreds) {
-	fmt.Printf("export AWS_ACCESS_KEY_ID=%s\n", val.AccessKeyID)
-	fmt.Printf("export AWS_SECRET_ACCESS_KEY=%s\n", val.AccessKey)
-	fmt.Printf("export AWS_SESSION_TOKEN=%s\n", val.SessionToken)
-	fmt.Printf("export AWS_ROLE_NAME=%s\n", val.Meta.RoleName)
-	fmt.Printf("export AWS_ACCOUNT_ID=%s\n", val.Meta.AccountID)
-	fmt.Printf("export AWS_PROFILE_NAME=%s\n", val.Meta.ProfileName)
+	fmt.Printf("export %s=%s\n", prefixEnvVar("AWS_ACCESS_KEY_ID"), val.AccessKeyID)
+	fmt.Printf("export %s=%s\n", prefixEnvVar("AWS_SECRET_ACCESS_KEY"), val.AccessKey)
+	fmt.Printf("export %s=%s\n", prefixEnvVar("AWS_SESSION_TOKEN"), val.SessionToken)
+	fmt.Printf("export %s=%s\n", prefixEnvVar("AWS_ROLE_NAME"), val.Meta.RoleName)
+	fmt.Printf("export %s=%s\n", prefixEnvVar("AWS_ACCOUNT_ID"), val.Meta.AccountID)
+	fmt.Printf("export %s=%s\n", prefixEnvVar("AWS_PROFILE_NAME"), val.Meta.ProfileName)
 }
 
 func setEnv(val *AWSCreds) {
-	os.Setenv("AWS_ACCESS_KEY_ID", val.AccessKeyID)
-	os.Setenv("AWS_SECRET_ACCESS_KEY", val.AccessKey)
-	os.Setenv("AWS_SESSION_TOKEN", val.SessionToken)
+	os.Setenv(prefixEnvVar("AWS_ACCESS_KEY_ID"),val.AccessKeyID)
+	os.Setenv(prefixEnvVar("AWS_SECRET_ACCESS_KEY"), val.AccessKey)
+	os.Setenv(prefixEnvVar("AWS_SESSION_TOKEN"), val.SessionToken)
 }
 
 func unsetEnv() {
-	os.Unsetenv("AWS_ACCESS_KEY_ID")
-	os.Unsetenv("AWS_SECRET_ACCESS_KEY")
-	os.Unsetenv("AWS_SESSION_TOKEN")
-	os.Unsetenv("AWS_ROLE_NAME")
-	os.Unsetenv("AWS_ACCOUNT_ID")
-	os.Unsetenv("AWS_PROFILE_NAME")
+	os.Unsetenv(prefixEnvVar("AWS_ACCESS_KEY_ID"))
+	os.Unsetenv(prefixEnvVar("AWS_SECRET_ACCESS_KEY"))
+	os.Unsetenv(prefixEnvVar("AWS_SESSION_TOKEN"))
+	os.Unsetenv(prefixEnvVar("AWS_ROLE_NAME"))
+	os.Unsetenv(prefixEnvVar("AWS_ACCOUNT_ID"))
+	os.Unsetenv(prefixEnvVar("AWS_PROFILE_NAME"))
+}
+
+func prefixEnvVar(envVarName string) string {
+	if len(envPrefix) == 0 {
+		return envVarName
+	}
+	return fmt.Sprintf("%s%s", envPrefix, envVarName)
 }
 
 func runCommand(args []string) error {
