@@ -48,4 +48,6 @@ gopkg.in/ini.v1 v1.49.0 h1:MW0aLMiezbm/Ray0gJJ+nQFE2uOC9EpK2p5zPN3NqpM=
 gopkg.in/ini.v1 v1.49.0/go.mod h1:pNLf8WUiyNEtQjuu5G5vTm06TEv9tsIgeAvK8hOrP4k=
 gopkg.in/ini.v1 v1.57.0 h1:9unxIsFcTt4I55uWluz+UmL95q4kdJ0buvQ1ZIqVQww=
 gopkg.in/ini.v1 v1.57.0/go.mod h1:pNLf8WUiyNEtQjuu5G5vTm06TEv9tsIgeAvK8hOrP4k=
+gopkg.in/ini.v1 v1.60.0 h1:P5ZzC7RJO04094NJYlEnBdFK2wwmnCAy/+7sAzvWs60=
+gopkg.in/ini.v1 v1.60.0/go.mod h1:pNLf8WUiyNEtQjuu5G5vTm06TEv9tsIgeAvK8hOrP4k=
 gopkg.in/yaml.v2 v2.2.2/go.mod h1:hI93XBmqTisBFMUTm0b8Fm+jr3Dg1NNxqwp+5A1VGuI=
