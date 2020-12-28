@@ -10,7 +10,7 @@ var Revision string
 
 // Version contains the main version number that is being
 // run at the moment.
-const Version = "0.3.4"
+var Version string
 
 func formattedVersion() string {
 	var versionString strings.Builder

@@ -212,7 +212,7 @@ func printExport(val *AWSCreds) {
 }
 
 func setEnv(val *AWSCreds) {
-	os.Setenv(prefixEnvVar("AWS_ACCESS_KEY_ID"),val.AccessKeyID)
+	os.Setenv(prefixEnvVar("AWS_ACCESS_KEY_ID"), val.AccessKeyID)
 	os.Setenv(prefixEnvVar("AWS_SECRET_ACCESS_KEY"), val.AccessKey)
 	os.Setenv(prefixEnvVar("AWS_SESSION_TOKEN"), val.SessionToken)
 }
@@ -246,7 +246,7 @@ func runCommand(args []string) error {
 
 func main() {
 	if version {
-		fmt.Fprintf(os.Stderr, "assume-role-arn v%s\n", formattedVersion())
+		fmt.Fprintf(os.Stderr, "assume-role-arn %s\n", formattedVersion())
 		os.Exit(0)
 	}
 
