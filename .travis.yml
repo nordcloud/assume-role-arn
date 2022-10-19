@@ -1,6 +1,6 @@
 language: go
 go:
-- 1.15.x
+- 1.17.x
 env:
 - GO111MODULE=on CGO_ENABLED=0
 git:
@@ -21,6 +21,7 @@ deploy:
   file: 
   - bin/assume-role-arn-linux
   - bin/assume-role-arn-osx
+  - bin/assume-role-arn-osx-arm
   on:
     tags: true
     repo: nordcloud/assume-role-arn
