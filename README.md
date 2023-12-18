@@ -1,5 +1,4 @@
 # assume-role-arn
-[![Build Status](https://travis-ci.org/nordcloud/assume-role-arn.svg?branch=master)](https://travis-ci.org/nordcloud/assume-role-arn)
 
 assume-role-arn is a simple golang binary that can be used as an `aws --profile`
 alternative or in CI/CD pipelines, so you don't need any external dependencies
