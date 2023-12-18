@@ -1,0 +1,46 @@
+name: Go Build and Release
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: [1.20.x]
+
+    steps:
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: ${{ matrix.go-version }}
+    
+    - name: Check out code
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 1
+
+    - name: Verify modules
+      run: go mod verify
+
+    - name: Test
+      run: go test -v ./...
+
+    - name: Build
+      run: |
+        mkdir bin
+        make build
+
+    - name: Deploy
+      if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          bin/assume-role-arn-linux
+          bin/assume-role-arn-osx
+          bin/assume-role-arn-osx-arm
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
