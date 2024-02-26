@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
+	"github.com/aws/aws-sdk-go/aws/credentials/ec2rolecreds"
 	"os"
 	"os/exec"
 	"strings"
@@ -25,7 +26,7 @@ const (
 
 var (
 	roleARN, roleName, externalID, mfa, mfaToken, region, awsProfileName, envPrefix string
-	verbose, ignoreCache, skipCache, version                                        bool
+	instanceMetadata, verbose, ignoreCache, skipCache, version                      bool
 )
 
 func init() {
@@ -46,6 +47,9 @@ func init() {
 
 	flag.StringVar(&mfaToken, "mfatoken", "", "MFA token")
 	flag.StringVar(&region, "region", "", "AWS region")
+
+	flag.BoolVar(&instanceMetadata, "instanceMetadata", false, "use instance metadata for credentials")
+	flag.BoolVar(&instanceMetadata, "i", false, "use instance metadata for credentials (shorthand)")
 
 	flag.BoolVar(&verbose, "verbose", false, "verbose mode")
 	flag.BoolVar(&verbose, "v", false, "verbose mode (shorthand)")
@@ -142,6 +146,11 @@ func getSession(awsCreds *AWSCreds) *session.Session {
 	}
 
 	sess := session.Must(session.NewSessionWithOptions(sessionOptions))
+
+	if instanceMetadata {
+		sessionOptions.Config.Credentials = ec2rolecreds.NewCredentials(sess)
+	}
+
 	sess.Handlers.Retry.PushFront(func(r *request.Request) {
 		if r.IsErrorExpired() {
 			logrus.Debug("Credentials expired. Stop retrying.")
